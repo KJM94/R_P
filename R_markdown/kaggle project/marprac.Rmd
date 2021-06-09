@@ -1,0 +1,244 @@
+---
+title: "House prices: Lasso, XGBoost, and a detailed EDA"
+author: "Kwon jung min"
+output:
+  html_document:
+    number_sections: true
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#요약
+
+저는 데이터 세트를 잘 이해하는 데 집중하면서이 대회를 시작했습니다. EDA는 상세하며 많은 시각화가 포함되어 있습니다. 이 버전에는 모델링도 포함됩니다.
+
+* Lasso 회귀는 교차 검증 RMSE 점수가 0.1121 일 때 가장 잘 수행됩니다. 변수들 사이에 많은 다중 공선 성이 있다는 사실을 감안할 때 이것은 예상되었습니다. Lasso는 예상대로 모델에서 사용 가능한 많은 변수를 선택하지 않습니다.
+* XGBoost 모델은 교차 검증 RMSE가 0.1162로 매우 잘 수행됩니다.
+*이 두 알고리즘은 매우 다르기 때문에 평균 예측은 예측을 향상시킬 수 있습니다. Lasso 교차 검증 RMSE가 XGBoost의 CV 점수보다 낫기 때문에 Lasso 결과에 두 배의 가중치를 부여하기로 결정했습니다.
+
+#Introduction
+
+Kaggle은 이 경쟁을 다음과 같이 설명합니다.
+ [follows](https://www.kaggle.com/c/house-prices-advanced-regression-techniques):
+
+주택 구입자에게 꿈의 집을 설명해달라고 요청하면 지하 천장 높이나 동서 철도와의 근접성으로 시작하지 않을 것입니다. 그러나이 놀이터 대회의 데이터 세트는 침실 수나 흰둥이 울타리보다 가격 협상에 훨씬 더 많은 영향을 미친다는 것을 증명합니다.
+
+아이오와 주 에임스에있는 주거용 주택의 거의 모든 측면을 설명하는 79 개의 설명 변수가있는이 경쟁에서는 각 주택의 최종 가격을 예측해야합니다.
+
+
+
+# Loading and Exploring Data
+
+##Loading libraries required and reading the data into R
+
+
+기본 R 외에 사용되는 R 패키지를로드합니다.
+
+```{r, message=FALSE, warning=FALSE}
+# 메세지와 경고를 출력하지 않는다. (반대 : TRUE)
+library(knitr) # 동적 보고서 생성 엔진 참고 URL : https://en.wikipedia.org/wiki/Knitr
+library(ggplot2) # 데이터 시각화 패키지
+library(plyr) # 데이터 분할, 적용, 조합의 세단계로 데이터를 처리하는 함수 제공 (배열, 데이터 프레임, 리스트) 참고 URL : https://data-make.tistory.com/59
+library(dplyr) # 데이터 전처리, 가공
+library(corrplot) # 상관행렬과 신뢰구간의 그래프, 행렬의 재정렬 알고리즘 포함 패키지 참고 URL : https://rpubs.com/cardiomoon/27080
+library(caret) # 복잡한 회귀와 분류 문제에 대한 모형 훈련과 조절과정을 간소화 하는 함수 참고 URL : http://kocw-n.xcache.kinxcdn.com/data/document/2017/chungbuk/najonghwa/8.pdf
+library(gridExtra) # 차트 분할 출력
+library(scales) # 시각적 맵핑
+library(Rmisc) # 데이터 분석 및 유틸리티에 유용한 함수 모음
+library(ggrepel) # 레이블 정리 참고 URL : https://kuduz.tistory.com/1111
+library(randomForest) # 랜덤으로 만들어 나온 결과를 투표방식으로 예측하는 알고리즘 참고 URL : https://hongsamm.tistory.com/20
+library(psych) # 기술통계량을 제공하는 함수 중 하나 참고 URL : https://dr-hkim.github.io/R-301-Descriptive-Statistics/
+library(xgboost) # 병렬처리 최적화 패키지
+```
+상관행렬 : 확률론과 통계학에서 두 변수간에 어떤 선형적 관계를 갖고 있는 지를 분석하는 방법
+
+신뢰구간 : 표본평균 분포
+
+병렬처리 : 동시에 많은 계산을 하는 연산의 방법
+참고URL : https://ko.wikipedia.org/wiki/%EB%B3%91%EB%A0%AC_%EC%BB%B4%ED%93%A8%ED%8C%85
+
+
+아래에서는 csv를 데이터 프레임으로 R로 읽고 있습니다.
+
+```{r}
+train <- read.csv("train.csv", stringsAsFactors = F) # 데이터를 R로 불러오지만 메모리에 저장되는 것은 아님
+```
+
+stringsAsFactors : 데이터를 불러올 때, 데이터에 숫자 외의 데이터로 인한 오류 방지
+
+##데이터 크기 및 구조
+
+train 데이터 세트는 문자 및 정수 변수로 구성됩니다. 대부분의 문자 변수는 실제로 (순서적인) 요인이지만 대부분의 경우 정리 및 / 또는 기능 엔지니어링이 먼저 필요하기 때문에 문자열로 R로 읽기로 선택했습니다. 총 81 개의 열 / 변수가 있으며 마지막 열은 반응 변수 (SalePrice)입니다. 아래에서는 변수를 간략하게 보여주고 있습니다. 그들 모두는 문서 전체에서 더 자세히 논의됩니다.
+
+```{r}
+#ID를 제거하지만 테스트 ID를 벡터에 유지합니다. 제출 파일을 작성하는 데 필요합니다.
+train$Id <- NULL
+```
+
+```{r}
+all <- rbind(train) # rbind : 데이터 결합
+dim(all) # 데이터프레임 의 길이 관측, 행과 열의 갯수를 출력
+```
+
+ID가 없으면 데이터 프레임은 79 개의 예측 변수와 응답 변수 SalePrice로 구성됩니다.
+
+#Exploring some of the most important variables
+
+##반응 변수; SalePrice
+
+보시다시피 판매 가격이 올바르게 왜곡되어 있습니다. 이것은 매우 비싼 집을 살 수있는 사람이 거의 없기 때문에 예상되었습니다. 이를 염두에두고 모델링 전에 조치를 취하겠습니다.
+
+```{r, message=FALSE}
+ggplot(data=all[!is.na(all$SalePrice),], aes(x=SalePrice)) +
+        geom_histogram(fill="blue", binwidth = 10000) +
+        scale_x_continuous(breaks= seq(0, 800000, by=100000), labels = comma)
+```
+
+
+binwidth : 연속형 변수를 일정한 구간으로 나누어 빈도수를 구한 후 막대 그래프로 표현
+
+```{r}
+summary(all$SalePrice) # 기술통계 함수 참고 URL : http://blog.naver.com/PostView.nhn?blogId=rickman2&logNo=221451645853&categoryNo=40&parentCategoryNo=0
+```
+
+
+##가장 중요한 숫자 예측 변수
+
+문자 변수를 사용하려면 작업이 필요합니다. 데이터 세트에 대한 느낌을 얻기 위해 먼저 SalePrice와 높은 상관 관계가있는 숫자 변수를 확인하기로 결정했습니다.
+
+###SalePrice와의 상관 관계
+
+전체적으로 SalePrice와 최소 0.5의 상관 관계가있는 10 개의 숫자 변수가 있습니다. 이러한 모든 상관 관계는 긍정적입니다.
+
+```{r}
+numericVars <- which(sapply(all, is.numeric)) #인덱스 벡터 숫자 형 변수
+numericVarNames <- names(numericVars) #나중에 사용하기 위해 names 벡터 저장
+cat('There are', length(numericVars), 'numeric variables')
+# which : 특정 값의 위치를 찾는 함수 찾고자 하는 값의 위치를 반환
+all_numVar <- all[, numericVars]
+cor_numVar <- cor(all_numVar, use="pairwise.complete.obs") #모든 숫자 변수의 상관 관계
+
+#SalePrice와의 감소하는 상관 관계에 따라 정렬
+cor_sorted <- as.matrix(sort(cor_numVar[,'SalePrice'], decreasing = TRUE))
+ #높은 corelations 만 선택
+CorHigh <- names(which(apply(cor_sorted, 1, function(x) abs(x)>0.5)))
+cor_numVar <- cor_numVar[CorHigh, CorHigh]
+
+corrplot.mixed(cor_numVar, tl.col="black", tl.pos = "lt")
+```
+
+이 섹션의 나머지 부분에서는 SalePrice와 SalePrice와 가장 높은 상관 관계를 가진 두 예측 변수 간의 관계를 시각화합니다. 전반적인 품질 및 '고급'생활 공간 (이것은 지하실에없는 집의 비율입니다. [link](http://www.gimme-shelter.com/above-grade-50066/)).
+
+또한 다중 공선 성이 문제라는 것이 분명해집니다. 예를 들어, GarageCars와 GarageArea 간의 상관 관계는 매우 높고 (0.89) 둘 다 SalePrice와 유사한 (높은) 상관 관계를가집니다. SalePrice와의 상관 관계가 0.5보다 높은 나머지 6 개의 변수는 다음과 같습니다.:
+-TotalBsmtSF: 지하 총 평방 피트
+-1stFlrSF: 1 층 평방 피트
+-FullBath: 욕실 포함 등급 이상의 방
+-TotRmsAbvGrd: 등급 이상의 총 방 (욕실은 포함되지 않음)
+-YearBuilt: 원래 건설 날짜
+-YearRemodAdd: 리모델링 날짜 (개조 또는 추가가없는 경우 건설 날짜와 동일)
+
+
+###전반적인 품질
+
+전체 품질은 수치 변수 (0.79) 중 SalePrice와 가장 높은 상관 관계를 나타냅니다. 집의 전체 재료와 마감을 1 (매우 나쁨)에서 10 (매우 우수)까지 등급으로 평가합니다.
+
+```{r}
+ggplot(data=all[!is.na(all$SalePrice),], aes(x=factor(OverallQual), y=SalePrice))+
+        geom_boxplot(col='blue') + labs(x='Overall Quality') +
+        scale_y_continuous(breaks= seq(0, 800000, by=100000), labels = comma)
+```
+
+양의 상관 관계는 확실히 존재하며 약간 상승 곡선 인 것 같습니다. 특이 치에 관해서는 극단적 인 값이 보이지 않습니다. 나중에 이상치로 빼낼 후보가 있으면 4 급 고가 집 인 것 같다.
+
+###지상 (지상) 거실 공간 (평방 피트)
+
+SalesPrice와 두 번째로 높은 상관 관계가있는 숫자 변수는 Grade Living Area입니다. 이것은 많은 의미가 있습니다. 큰 집은 일반적으로 더 비쌉니다.
+
+```{r}
+ggplot(data=all[!is.na(all$SalePrice),], aes(x=GrLivArea, y=SalePrice))+
+        geom_point(col='blue') + geom_smooth(method = "lm", se=FALSE, color="black", aes(group=1)) +
+        scale_y_continuous(breaks= seq(0, 800000, by=100000), labels = comma) +
+        geom_text_repel(aes(label = ifelse(all$GrLivArea[!is.na(all$SalePrice)]>4500, rownames(all), '')))
+        
+```
+
+
+rownames : 행 이름을 바꾸는 함수
+
+특히 거실이 넓고 SalePrices가 낮은 두 주택은 이상치처럼 보입니다 (주택 524 및 1299, 그래프의 레이블 참조). 이상 값을 가져 오는 것은 위험 할 수 있으므로 아직 제거하지 않겠습니다. 예를 들어, 전반적인 품질에서 낮은 점수는 낮은 가격을 설명 할 수 있습니다. 그러나 아래에서 볼 수 있듯이 이 두 주택은 실제로 전체 품질에서 최대 점수를 얻습니다. 따라서 저는 1299 호와 524 호를 이상 값으로 제거 할 주요 후보로 염두에 두겠습니다.
+
+```{r}
+all[c(524, 1299), c('SalePrice', 'GrLivArea', 'OverallQual')]
+```
+
+#누락 된 데이터, 레이블 인코딩 및 변수 분해
+
+##데이터의 완전성
+
+우선, 어떤 변수에 결 측값이 있는지 확인하고 싶습니다.
+
+```{r}
+NAcol <- which(colSums(is.na(all)) > 0)
+sort(colSums(sapply(all[NAcol], is.na)), decreasing = TRUE)
+
+```
+sort : 숫자 자체 정렬
+decreasing : 내림차순
+
+```{r}
+cat('There are', length(NAcol), 'columns with missing values')
+```
+cat : 개행을 하지 않는 출력함수
+
+물론 SalePrice의 1459 NA는 테스트 세트의 크기와 완벽하게 일치합니다. 이는 34 개의 예측 변수에서 NA를 수정해야 함을 의미합니다.
+
+##누락 된 데이터 {.tabset} 대치
+
+이 섹션에서는 결 측값이 포함 된 34 개의 예측 변수를 수정하겠습니다. 나는 그것들을 모두 고칠 때까지 대부분의 NA에서 내려가는 방법을 살펴볼 것입니다. 실제로 다른 변수와 그룹을 형성하는 변수를 우연히 발견하면 그룹으로 다룰 것입니다. 예를 들어, 수영장, 차고 및 지하와 관련된 여러 변수가 있습니다.
+
+문서를 가능한 한 읽기 쉽게 유지하기 위해 knitr에서 제공하는 "Tabs"옵션을 사용하기로 결정했습니다. 각 탭 아래에서 각 변수 (그룹)에 대한 간단한 분석을 찾을 수 있습니다. 모든 섹션을 살펴볼 필요는 없으며 몇 개의 탭만 볼 수도 있습니다. 그렇게한다면, 저는 지하실이나 차고가없는 집을 신중하게 결정했기 때문에 특히 차고와 지하실 섹션이 가치가 있다고 생각합니다.
+
+NA가 제거되었는지 확인하는 것 외에도, 명확한 순서가있는 경우 문자 변수를 순서 형 정수로 변환하고 수준이 순서 성이없는 범주 인 경우 요인으로 변환했습니다. 나중에 원-핫 인코딩 (model.matrix 함수 사용)을 사용하여 이러한 요소를 숫자로 변환합니다.
+
+###Pool variables
+
+**Pool Quality and the PoolArea variable**
+
+PoolQC는 대부분의 NA가있는 변수입니다. 설명은 다음과 같습니다:
+
+PoolQC: Pool quality
+		
+       Ex	Excellent
+       Gd	Good
+       TA	Average/Typical
+       Fa	Fair
+       NA	No Pool
+       
+따라서 NA에 'No Pool'만 할당하면됩니다. 또한 일반적으로 소수의 주택에만 수영장이 있기 때문에 많은 수의 NA가 의미가 있습니다.
+
+```{r}
+all$PoolQC[is.na(all$PoolQC)] <- 'None'
+```
+
+값이 서수이므로 이 변수에 레이블을 인코딩 할 수 있다는 것도 분명합니다. 동일한 품질 수준을 사용하는 여러 변수가 있으므로 나중에 다시 사용할 수있는 벡터를 만들 것입니다.
+
+```{r}
+Qualities <- c('None' = 0, 'Po' = 1, 'Fa' = 2, 'TA' = 3, 'Gd' = 4, 'Ex' = 5)
+```
+
+이제 'revalue'기능을 사용하여 작업을 수행 할 수 있습니다.
+
+```{r, message=FALSE}
+
+all$PoolQC<-as.integer(revalue(all$PoolQC, Qualities))
+table(all$PoolQC)
+```
+revalue : plyr 패키지 안의 라벨 변경 함수
+
+
+
+
