@@ -1,0 +1,62 @@
+---
+title: "correlation_analysis"
+output: html_document
+---
+
+# Pearson 상관분석
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 패키지 및 라이브러리 설치
+```{r, message=FALSE}
+install.packages('corrplot', repos="http://cran.us.r-project.org")
+install.packages('car', repos="http://cran.us.r-project.org")
+install.packages('rgl', repos="http://cran.us.r-project.org")
+install.packages('psych', repos="http://cran.us.r-project.org")
+install.packages('writexl', repos="http://cran.us.r-project.org")
+```
+
+```{r}
+library(corrplot)
+library(car)
+library(rgl)
+library(psych)
+library(writexl)
+```
+
+## 산점도
+- 산점도를 미리 그려봄으로써 두 변수간의 관련성을 시각적으로 파악할 수 있다. 
+```{r}
+plot(cars$speed, cars$dist, col="red", pch=20) #x축, y축, 색, 모양
+```
+
+## 상관분석
+- 귀무가설: speed와 dist간에는 관련성이 없다
+- 대립가설: speed와 dist간에는 관련성이 있다
+
+## 1) 정규성 검정
+- 귀무가설: 정규분포를 따른다
+- 대립가설: 정규분포를 따르지 않는다
+```{r}
+shapiro.test(cars$speed) #p-value=0.46
+shapiro.test(cars$dist) #p-value=0.04
+```
+- 한개의 변수라도 정규성이 만족되면 pearson 사용 가능
+- speed 변수가 유의수준 0.05 이상이기 때문에 귀무가설이 기각할 수 없다. 
+- 따라서 귀무가설이 채택되어 정규분포를 따른다
+
+## 2) pearson 상관 분석
+```{r}
+cor.test(cars$speed, cars$dist, method ="pearson") #p-value=1.49e-12
+```
+- 귀무가설: speed와 dist간에는 관련성이 없다
+- 대립가설: speed와 dist간에는 관련성이 있다
+- 유의수준인 0.05보다 작기 때문에 귀무가설을 기각한다. 
+- 따라서 대립가설을 따르기 때문에 speed와 dist간에는 관련성이 있는 것으로 나타났다.
+
+
+
+## 참조
+- [https://kim-mj.tistory.com/56](https://kim-mj.tistory.com/56)

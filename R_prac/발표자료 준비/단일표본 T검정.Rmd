@@ -1,0 +1,240 @@
+---
+title: "단일표본 T검정"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# [1] 데이터프레임 4개 랜덤 생성
+  * [1-1] 10개 짜리 데이터 랜덤 생성 (=1번 데이터프레임)
+    * [1-1-1] 『시리얼번호』 생성 ==> 1부터 10까지
+```{r}
+serialNumber1<-c(1:10)
+serialNumber1
+```
+  * [1-1-2] 『고혈압 수치』랜덤 생성 ==> 범위: 145~160
+```{r}
+SBP1<-c(sample(145:160, 10, replace=T))
+SBP1
+```
+  * [1-1-3] 데이터프레임으로 묶음: 『시리얼번호』와 『고혈압수치』를 하나의 데이터 프레임 안에다 엮음
+```{r}
+testData1<-data.frame(serialNumber1, SBP1)
+testData1
+
+mean(testData1$SBP1)
+
+str(testData1)
+```
+# NA 0개임 확인
+```{r}
+summary(testData1$SBP1)
+```
+# NA를 제외한 평균
+```{r}
+mean(testData1$SBP1, na.rm = TRUE)
+```
+# NA 제거 후 새로운 데이터 생성
+```{r}
+testData11 <- testData1[is.na(testData1$SBP1) == FALSE, ]
+mean(testData11$SBP1)
+```
+# [1-2] 30개 짜리 데이터 랜덤 생성 (=2번 데이터프레임)
+```{r}
+serialNumber2<-c(1:30)
+serialNumber2
+SBP2<-c(sample(145:160, 30, replace=T))
+SBP2
+testData2<-data.frame(serialNumber2, SBP2)
+testData2
+mean(testData2$SBP2)
+str(testData2)
+summary(testData2$SBP2)
+mean(testData2$SBP2, na.rm = TRUE)
+testData22 <- testData2[is.na(testData2$SBP2) == FALSE, ]
+mean(testData22$SBP2)
+```
+# [1-3] 100개 짜리 데이터 랜덤 생성 (=3번 데이터프레임)
+```{r}
+serialNumber3<-c(1:100)
+serialNumber3
+SBP3<-c(sample(145:160, 100, replace=T))
+SBP3
+testData3<-data.frame(serialNumber3, SBP3)
+testData3
+mean(testData3$SBP3)
+str(testData3)
+summary(testData3$SBP3)
+mean(testData3$SBP3, na.rm = TRUE)
+testData33 <- testData3[is.na(testData3$SBP3) == FALSE, ]
+mean(testData33$SBP3)
+
+```
+# [1-4] 1000개 짜리 데이터 랜덤 생성 (=4번 데이터프레임)
+```{r}
+serialNumber4<-c(1:1000)
+serialNumber4
+SBP4<-c(sample(145:160, 1000, replace=T))
+SBP4
+testData4<-data.frame(serialNumber4, SBP4)
+testData4
+mean(testData4$SBP4)
+str(testData4)
+summary(testData4$SBP4)
+mean(testData4$SBP4, na.rm = TRUE)
+testData44 <- testData4[is.na(testData4$SBP4) == FALSE, ]
+mean(testData44$SBP4)
+```
+
+
+# [2] Shapiro 테스트 (정규분포 검정)
+  * ▷ 귀무가설: 수축기혈압의 각 수치들(데이터 testData1$SBP1 ~ testData4$SBP4)은 정규분포를 보인다.
+  * ▶ 대립가설: 데이터프레임 testData1은 정규분포를 보이지 않는다. 
+  * 즉, p-Value(유의확률)값이 0.05보다 크면 데이터프레임 dat은 정규분포를 보인다는 뜻임 
+```{r}
+shapiro.test(testData11$SBP1)
+hist(testData11$SBP1)
+qqnorm(testData11$SBP1)
+qqline(testData1$SBP1, lty = 1, col = "blue")
+
+
+
+
+shapiro.test(testData22$SBP2)
+hist(testData2$SBP2)
+qqnorm(testData2$SBP2)
+qqline(testData2$SBP2, lty = 1, col = "blue")
+
+
+
+
+shapiro.test(testData33$SBP3)
+hist(testData3$SBP3)
+qqnorm(testData3$SBP3)
+qqline(testData3$SBP3, lty = 1, col = "blue")
+
+
+
+
+shapiro.test(testData44$SBP4)
+hist(testData4$SBP4)
+qqnorm(testData4$SBP4)
+qqline(testData4$SBP4, lty = 1, col = "blue")
+
+
+```
+ 
+# [3] 단일표본 T검정
+  * 1번 데이터프레임
+  * 평균
+```{r}
+mean(testData11$SBP1)
+```
+  * 양측 T검정
+```{r}
+t.test(testData11$SBP1, alternative = "two.sided", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+```
+  
+  * 단측 T검정
+```{r}
+t.test(testData11$SBP1, alternative = "greater", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+t.test(testData11$SBP1, alternative = "less", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+```
+  
+  * 양측 Wilcox 검정
+```{r}
+wilcox.test(testData11$SBP1, alternative = "two.sided", mu = 150, paired = FALSE, conf.level = 0.95)
+```
+  
+  * 단측 Wilcox 검정
+```{r}
+wilcox.test(testData11$SBP1, alternative = "greater", mu = 150, paired = FALSE, conf.level = 0.95)
+wilcox.test(testData11$SBP1, alternative = "less", mu = 150, paired = FALSE, conf.level = 0.95)
+```
+
+  * 2번 데이터프레임
+  * 평균
+```{r}
+mean(testData22$SBP2)
+```
+  * 양측 T검정
+```{r}
+t.test(testData22$SBP2, alternative = "two.sided", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+```
+  
+  * 단측 T검정
+```{r}
+t.test(testData22$SBP2, alternative = "greater", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+t.test(testData22$SBP2, alternative = "less", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+```
+  
+  * 양측 Wilcox 검정
+```{r}
+wilcox.test(testData22$SBP2, alternative = "two.sided", mu = 150, paired = FALSE, conf.level = 0.95)
+```
+  
+  * 단측 Wilcox 검정
+```{r}
+wilcox.test(testData22$SBP2, alternative = "greater", mu = 150, paired = FALSE, conf.level = 0.95)
+wilcox.test(testData22$SBP2, alternative = "less", mu = 150, paired = FALSE, conf.level = 0.95)
+```
+
+
+  * 3번 데이터프레임
+  * 평균
+```{r}
+mean(testData33$SBP3)
+```
+  * 양측 T검정
+```{r}
+t.test(testData33$SBP3, alternative = "two.sided", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+```
+  
+  * 단측 T검정
+```{r}
+t.test(testData33$SBP3, alternative = "greater", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+t.test(testData33$SBP3, alternative = "less", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+```
+  
+  * 양측 Wilcox 검정
+```{r}
+wilcox.test(testData33$SBP3, alternative = "two.sided", mu = 150, paired = FALSE, conf.level = 0.95)
+```
+  
+  * 단측 Wilcox 검정
+```{r}
+wilcox.test(testData33$SBP3, alternative = "greater", mu = 150, paired = FALSE, conf.level = 0.95)
+wilcox.test(testData33$SBP3, alternative = "less", mu = 150, paired = FALSE, conf.level = 0.95)
+
+```
+
+
+  * 4번 데이터프레임
+  * 평균
+```{r}
+mean(testData44$SBP4)
+```
+  * 양측 T검정
+```{r}
+t.test(testData44$SBP4, alternative = "two.sided", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+```
+  
+  * 단측 T검정
+```{r}
+t.test(testData44$SBP4, alternative = "greater", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+t.test(testData44$SBP4, alternative = "less", mu = 150, paired = FALSE, var.equal = FALSE, conf.level = 0.95)
+```
+  
+  * 양측 Wilcox 검정
+```{r}
+wilcox.test(testData44$SBP4, alternative = "two.sided", mu = 150, paired = FALSE, conf.level = 0.95)
+```
+  
+  * 단측 Wilcox 검정
+```{r}
+wilcox.test(testData44$SBP4, alternative = "greater", mu = 150, paired = FALSE, conf.level = 0.95)
+wilcox.test(testData44$SBP4, alternative = "less", mu = 150, paired = FALSE, conf.level = 0.95)
+
+```

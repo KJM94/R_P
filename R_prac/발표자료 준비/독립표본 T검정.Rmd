@@ -1,0 +1,48 @@
+---
+title: "독립표본 T검정.R"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 자료생성
+  - A라는 치료를 받은 그룹 G1 30명 표본(샘플)데이터 생성
+```{r}
+set.seed(1)
+SBP.g1<-c(sample(140:160,30,replace=T))
+SBP.g1
+```
+  * B라는 치료를 받은 그룹 G2 30명 표본(샘플)데이터 생성
+```{r}
+set.seed(2)
+SBP.g2<-c(sample(140:160,30,replace=T))
+SBP.g2
+```
+  * 그룹 G1, G2를 합한 데이터프레임 확인
+```{r}
+dat<-data.frame(SBP.g1,SBP.g2)
+dat
+```
+  
+  
+<br/>
+
+# 등분산 검정 
+```{r}
+var.test(SBP.g1, SBP.g2)
+```
+<br/>
+
+# t-검정 (t-test)
+```{r}
+t.test(SBP.g1, SBP.g2, var.equal=TRUE)
+```
+<br/>
+
+
+  
+  

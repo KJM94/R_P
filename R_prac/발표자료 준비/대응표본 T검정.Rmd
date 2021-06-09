@@ -1,0 +1,59 @@
+---
+title: "대응표본 T검정.R"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+<br/>
+# 자료 생성 
+  * 시리얼번호 생성: 1~30
+```{r}
+subject<-c(1:30)
+subject
+
+
+set.seed(123)
+before_w<-c(sample(50:65, 30,replace=T))
+
+set.seed(321)
+after_w<-c(sample(55:70, 30,replace=T))
+
+dat<-data.frame(subject, before_w, after_w)
+dat
+```
+<br/>
+
+# 전후 차이
+```{r}
+dat$diff <- dat$after_w - dat$before_w
+dat
+```
+<br/>
+
+# 정규성 가정 확인
+  * Q-Q plot
+```{r}
+qqnorm(dat$diff)
+qqline(dat$diff,col=2)
+```
+<br/>
+
+# Shapiro-Wilk test 
+```{r}
+shapiro.test(dat$diff)
+```
+<br/>
+
+# paired t-test
+```{r}
+t.test(dat$after_w, dat$before_w, paired=T)
+```
+
+
+
+  
+  
